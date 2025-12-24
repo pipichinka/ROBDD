@@ -1,15 +1,11 @@
 from cProfile import label
 import collections
-from distutils.command.build import build
 from functools import cache
 from math import exp
-import random
 import weakref
 import boolfunc
 import pydot
 from IPython.display import Image, display
-import urp
-import pcn
 
 
 class BDDNode:
@@ -57,12 +53,12 @@ class BDDNode:
         """ returns the string representation of the node """
         return self.__str__()
 
-    def _getUid(self):
+    def _getUid(self, mapping):
         """returns the UID for a node"""
-        uid = f"var->{self.var}\nid->{id(self)}\nlo->{id(self.lo)}    hi->{id(self.hi)}"
+        uid = f"var->{self.getLabel(mapping)}\nid->{id(self)}\nlo->{id(self.lo)}    hi->{id(self.hi)}"
         return uid
 
-    def getLabel(self):
+    def getLabel(self, mapping):
         """ returns the label for the node """
 
         # label is 0 if val is -1
@@ -73,7 +69,7 @@ class BDDNode:
             label = "1"
         # label is the variable in expression
         else:
-            label = f"X{self.var}"
+            label = mapping[self.var]
         return label
 
 
@@ -96,18 +92,18 @@ class BDD:
         # build the bdd
         self.node = self.buildBDD()
 
-    def displayGraph(self):
+    def displayGraph(self, mapping):
         """ displays the graph """
-        img = self.getPng()
+        img = self.getPng(mapping)
         display(img)
 
-    def getPng(self):
+    def getPng(self, mapping):
         """ returns the png image of the graph """
         self.graph = pydot.Dot(graph_type="digraph")
         # visited set for dfs to keep track of visited nodes
         visited = set()
         # call dfs to get the nodes in post order
-        BDD.dfs(self.graph, self.node, visited)
+        BDD.dfs(self.graph, self.node, visited, mapping)
         return Image(self.graph.create_png())
 
     def getExpression(self):
@@ -117,30 +113,30 @@ class BDD:
         return boolfunc.Expression(cubes=cubes, numVars=self.exp.numVars)
 
     @staticmethod
-    def dfs(graph, node, visited):
+    def dfs(graph, node, visited, mapping):
         """Iterate through nodes in DFS post-order."""
         if node.lo is not None:
-            BDD.dfs(graph, node.lo, visited)
+            BDD.dfs(graph, node.lo, visited, mapping)
         if node.hi is not None:
-            BDD.dfs(graph, node.hi, visited)
+            BDD.dfs(graph, node.hi, visited, mapping)
         if node not in visited:
             visited.add(node)
             if node.var == -1:
-                graph.add_node(pydot.Node(node._getUid(),
+                graph.add_node(pydot.Node(node._getUid(mapping),
                                           style="filled", fillcolor="orange", shape='box'))
             elif node.var == -2:
-                graph.add_node(pydot.Node(node._getUid(),
+                graph.add_node(pydot.Node(node._getUid(mapping),
                                           style="filled", fillcolor="lightblue", shape='box'))
             else:
-                graph.add_node(pydot.Node(node._getUid(),
+                graph.add_node(pydot.Node(node._getUid(mapping),
                                           style="filled", fillcolor="green"))
             if node.lo is not None:
                 eLo = pydot.Edge(
-                    node._getUid(), node.lo._getUid(), color='red', style='dotted')
+                    node._getUid(mapping), node.lo._getUid(mapping), color='red', style='dotted')
                 graph.add_edge(eLo)
             if node.hi is not None:
                 eHi = pydot.Edge(
-                    node._getUid(), node.hi._getUid(), color='blue')
+                    node._getUid(mapping), node.hi._getUid(mapping), color='blue')
                 graph.add_edge(eHi)
 
     def buildBDD(self):
